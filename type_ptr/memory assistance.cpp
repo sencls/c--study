@@ -101,7 +101,7 @@ public:
     return size;
   }
 };*/
-#include <iostream>
+/*简单认识内存池#include <iostream>
 #include <stack>
 #include <string>
 class Student
@@ -184,4 +184,127 @@ int main()
   }
 
   return 0;
-}
+}*/
+// 避免内存泄漏： 确保new与delete配对存在，使用RAII与智能指针，使用Valgrind检测内存泄漏
+/*封装简单的智能指针#include "simpleSharedPtr.h"
+#include <string>
+#include <iostream>
+#include <thread>
+struct Student
+{
+  int age;
+  std::string name;
+  Student(int a, std::string b) : age(a), name(b) {}
+  ~Student() { std::cout << name << std::endl; }
+};
+
+int main()
+{
+  simpleSharedPtr<Student> ptr1;
+  std::cout << ptr1.use_count() << std::endl;
+
+  simpleSharedPtr<Student> ptr2(new Student(25, "jim"));
+  std::cout << ptr2.use_count() << std::endl;
+
+  simpleSharedPtr ptr3(ptr2);
+  std::cout << ptr2.use_count() << std::endl;
+  std::cout << ptr3.use_count() << std::endl;
+
+  ptr1 = ptr3;
+  std::cout << ptr1.use_count() << std::endl;
+  std::cout << ptr3.use_count() << std::endl;
+
+  ptr2.reset(new Student(44, "tom"));
+  std::cout << ptr2.use_count() << std::endl;
+  std::cout << ptr3.use_count() << std::endl;
+
+  std::thread t1([ptr2]() -> void
+                 { ptr2->name = "RRR"; });
+
+  t1.join();
+}*/
+/*智能指针(memory库中)
+  unique_ptr<> 只能绑定一个对象，不存在赋值()，只能通过std::move()来传递，构造时可以直接传裸指针;
+    std::unique_ptr<Student> ptr = std::make_unique<Student>(20, "tim");
+    std::unique_ptr<Student> p(new Student(12, "jim"));
+    std::unique_ptr<Student> ptr2 = std::move(p);
+    std::unique_ptr<Student> ptr2 =p;//错误的
+  shared_ptr<> 多对一的存在，有controlblock控制使用数量，避免出现悬空指针德情况。
+    有use_count统计强引用，weak_count统计弱引用；
+    std::shared_ptr<Student> ptr = std::make_shared<Student>(20, "tim");
+    std::shared_ptr<Student> p(new Student(12, "jim"));
+    std::shared_ptr<Student> ptr2 =p;
+    std::shared_ptr<Student> ptr2 = std::move(p);
+  weak_ptr<> 适用于避免循环引用(存在双向关联，如父子关系)，可以通过其访问shared_ptr管理的对象(使用lock()函数);bool expired()当前所指对象是否已被回收;
+  e.g.
+    class B;
+    class A
+    {
+      public:
+      std::shared_ptr<B> ptr_b;
+      A() { std::cout << "A()" << std::endl; }
+      ~A() { std::cout << "~A()" << std::endl; }
+    };
+    class B
+    {
+      public:
+          std::shared_ptr<A> ptr_a;//改：weak_ptr
+          B() { std::cout << "B()" << std::endl; }
+          ~B() { std::cout << "~B()" << std::endl; }
+    };
+
+    std::shared_ptr<A> a = std::make_shared<A>();
+    std::shared_ptr<B> b = std::make_shared<B>();
+    a->ptr_b = b;
+    b->ptr_a = a;
+    //内存泄漏，没有调用A，B的析构函数，
+
+*/
+/* 小练习1 #include <iostream>
+#include <memory>
+class ResourcesManager
+{
+  std::unique_ptr<int> ps;
+
+public:
+  ResourcesManager(int val)
+  {
+    ps = std::make_unique<int>(val);
+  }
+  int getValue() const
+  {
+    return *ps;
+  }
+  void setValue(int newValue)
+  {
+    *ps = newValue;
+  }
+
+  ResourcesManager(const ResourcesManager &other) = delete;
+  ResourcesManager &operator=(const ResourcesManager &other) = delete;
+  ResourcesManager(ResourcesManager &&other) noexcept
+  {
+    ps = std::move(other.ps);
+    other.ps = nullptr;
+  }
+  ResourcesManager &operator=(ResourcesManager &&other)
+  {
+    if (this != &other)
+    {
+      ps = std::move(other.ps);
+      other.ps = nullptr;
+    }
+    return *this;
+  }
+};
+
+int main()
+{
+  ResourcesManager a(10);
+  std::cout << a.getValue() << std::endl;
+  a.setValue(20);
+  std::cout << a.getValue() << std::endl;
+  ResourcesManager b(std::move(a));
+  std::cout << b.getValue() << std::endl;
+  return 0;
+}*/
