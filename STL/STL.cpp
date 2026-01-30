@@ -97,10 +97,13 @@
 int main()
 {
     mymap<int, std::string> a;
-    a.insert(2, "two");
-    a.insert(1, "one");
-    a.insert(3, "three");
-    a.print();
-    a.clear();
+    a.insert(150, "qqq");
+    a.insert(130, "two");
+    a.insert(170, "one");
+    a.insert(165, "three");
+    for (auto it = a.begin(); it != a.end(); ++it)
+    {
+        std::cout << it->first << " " << it->second << std::endl;
+    }
     return 0;
 }
