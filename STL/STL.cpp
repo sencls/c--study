@@ -89,14 +89,18 @@
     }
 */
 #include <iostream>
-#include <map>
+#include "mymap.h"
 #include <list>
 #include <string>
 #include <algorithm>
 #include <functional>
-
 int main()
 {
-
+    mymap<int, std::string> a;
+    a.insert(2, "two");
+    a.insert(1, "one");
+    a.insert(3, "three");
+    a.print();
+    a.clear();
     return 0;
 }
