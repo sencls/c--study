@@ -89,21 +89,18 @@
     }
 */
 #include <iostream>
-#include "mymap.h"
+#include "AVLmap.h"
 #include <list>
 #include <string>
 #include <algorithm>
 #include <functional>
+#include <map>
+#include <string>
+#include <vector>
+using namespace std;
+
 int main()
 {
-    mymap<int, std::string> a;
-    a.insert(150, "qqq");
-    a.insert(130, "two");
-    a.insert(170, "one");
-    a.insert(165, "three");
-    for (auto it = a.begin(); it != a.end(); ++it)
-    {
-        std::cout << it->first << " " << it->second << std::endl;
-    }
+
     return 0;
 }
