@@ -87,20 +87,41 @@
             std::map<type,other_type,std::function<bool(type a,type b)>>a(comp)
             e.g. std::map<Person, std::string, decltype(comp)> qw(comp);
     }
+
+//unordered_map(#include<unordered_map>): 无序列表，常数时间的查找，插入，删除，但不保证顺序
+    基本模板定义： std::unordered_map<KeyType,ValueType,Hash=std::hash<KeyType>,KeyEqual=std::equal_to<KeyType>,Allocator=
+    std::allocator<std::pair<const KeyType,ValueType>>>
+                        //hash: 哈希函数，keyequal 键值相等时，allocator 内存分配器
+    通过[]访问map中，没有的对象自动构建对象，然后给默认值
+    insert() 插入函数insert({}),emplace(key,value);
+    erase(),根据参数内容返回对象，迭代器->删除后所指的迭代器，键->值
+    bucket_count() 返回桶数量，rehash() 调整前者数量
+    自定义键，需要定义比较函数，哈希函数
+
 */
 #include <iostream>
-#include "AVLmap.h"
+// #include "AVLmap.h"
 #include <list>
 #include <string>
 #include <algorithm>
 #include <functional>
-#include <map>
 #include <string>
 #include <vector>
-using namespace std;
-
+#include "hashmap.h"
 int main()
 {
-
+    hashmap<std::string, int> ma;
+    ma.insert("apple", 2);
+    ma.insert("banan", 3);
+    for (auto it = ma.begin(); it != ma.end(); ++it)
+    {
+        std::cout << it->first << ' ' << it->second << std::endl;
+    }
+    auto a = ma.find("apple");
+    std::cout << a->first << ' ' << a->second << std::endl;
+    for (auto it = ma.begin(); it != ma.end(); ++it)
+    {
+        std::cout << it->first << ' ' << it->second << std::endl;
+    }
     return 0;
 }
