@@ -1,0 +1,26 @@
+
+[DEBUG]Starting application
+[INFO]User 43 perform login in 3.5 seconds
+[WARN]hello World
+[ERROR]this
+[INFO]Multiple placeholders :1,2,3
+[DEBUG]Starting application
+[INFO]User 43 perform login in 3.5 seconds
+[WARN]hello World
+[ERROR]this
+[INFO]Multiple placeholders :1,2,3
+[DEBUG] [Fri Feb 13 18:07:04 2026
+] Starting application
+[INFO] [Fri Feb 13 18:07:04 2026
+] User 43 perform login in 3.5 seconds
+[WARN] [Fri Feb 13 18:07:04 2026
+] hello World
+[ERROR] [Fri Feb 13 18:07:04 2026
+] this
+[INFO] [Fri Feb 13 18:07:04 2026
+] Multiple placeholders :1,2,3
+[DEBUG] [2026-02-13 18:11:17] Starting application
+[INFO] [2026-02-13 18:11:17] User 43 perform login in 3.5 seconds
+[WARN] [2026-02-13 18:11:17] hello World
+[ERROR] [2026-02-13 18:11:17] this
+[INFO] [2026-02-13 18:11:17] Multiple placeholders :1,2,3
