@@ -3,7 +3,8 @@
         {
             "name": "MinGW",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/third_party"
             ],
             "compilerPath": "C:\\Program Files\\mingw64\\bin\\g++.exe",
             "cStandard": "c17",
