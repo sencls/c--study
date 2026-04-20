@@ -1,0 +1,11 @@
+{
+	"age" : 17,
+	"name" : "Rem",
+	"role" : "Maid Engineer",
+	"skills" : 
+	[
+		"C++",
+		"Debug",
+		"Cooking"
+	]
+}

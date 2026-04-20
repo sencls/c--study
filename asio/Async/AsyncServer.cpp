@@ -3,100 +3,101 @@
 #include <boost/uuid/generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <iostream>
+#include <iomanip>
 #include <memory>
 #include <map>
 #include <queue>
+#include <sstream>
 using boost::asio::ip::tcp;
 #define MAX_LENGTH 1024 * 2
 #define HEAD_LENGTH 2
 #define MAX_RECVQUE 10000
 #define MAX_SENDQUE 1000
-// 木铎网络库muduo
-//  class Session
-//  {
-//  public:
-//      Session(boost::asio::io_context &ioc) : _socket(ioc) {}
-//      tcp::socket &Socket()
-//      {
-//          return _socket;
-//      }
-//      void Start()
-//      {
-//          memset(_data, 0, max_length);
-//          _socket.async_read_some(boost::asio::buffer(_data, max_length),
-//                                  [this](const boost::system::error_code &ec, std::size_t bytes_transferrecd)
-//                                  {
-//                                      handle_read(ec, bytes_transferrecd);
-//                                  });
-//      }
+// // 木铎网络库muduo class Session
+// // {
+// // public:
+// //     Session(boost::asio::io_context &ioc) : _socket(ioc) {}
+// //     tcp::socket &Socket()
+// //     {
+// //         return _socket;
+// //     }
+// //     void Start()
+// //     {
+// //         memset(_data, 0, max_length);
+// //         _socket.async_read_some(boost::asio::buffer(_data, max_length),
+// //                                 [this](const boost::system::error_code &ec, std::size_t bytes_transferrecd)
+// //                                 {
+// //                                     handle_read(ec, bytes_transferrecd);
+// //                                 });
+// //     }
 
-// private:
-//     void handle_read(const boost::system::error_code &ec, std::size_t bytes_transferrecd)
-//     {
-//         if (!ec)
-//         {
-//             std::cout << "server receive data is: " << _data << std::endl;
-//             boost::asio::async_write(_socket, boost::asio::buffer(_data, bytes_transferrecd),
-//                                      [this](const boost::system::error_code &ec, std::size_t /*bytes_sent*/)
-//                                      {
-//                                          handle_write(ec);
-//                                      });
-//         }
-//         else
-//         {
-//             std::cout << "read error" << std::endl;
-//             delete this;
-//         }
-//     }
-//     void handle_write(const boost::system::error_code &ec)
-//     {
-//         if (!ec)
-//         {
-//             memset(_data, 0, max_length);
-//             _socket.async_read_some(boost::asio::buffer(_data, max_length),
-//                                     [this](const boost::system::error_code &ec, std::size_t bytes_transferrecd)
-//                                     {
-//                                         handle_read(ec, bytes_transferrecd);
-//                                     });
-//         }
-//         else
-//         {
-//             std::cout << "write error" << std::endl;
-//             delete this;
-//         }
-//     }
-//     tcp::socket _socket;
-//     enum
-//     {
-//         max_length = 1024
-//     };
-//     char _data[max_length];
-// };
-// class Server
-// {
-// private:
-//     void start_accept()
-//     {
-//         Session *new_session = new Session(_ioc);
-//         _acceptor.async_accept(new_session->Socket(), [this, &new_session](const boost::system::error_code &ec)
-//                                { handle_accept(new_session, ec); });
-//     }
-//     void handle_accept(Session *new_session, const boost::system::error_code &ec)
-//     {
-//         if (!ec)
-//         {
-//             new_session->Start();
-//         }
-//         else
-//         {
-//             std::cout << "failed" << std::endl;
-//             delete new_session;
-//         }
-//         start_accept();
-//     }
-//     boost::asio::io_context &_ioc;
-//     tcp::acceptor _acceptor;
-//     // 伪闭包实现 std::map<std::string, std::shared_ptr<Session>> _session;
+// // private:
+// //     void handle_read(const boost::system::error_code &ec, std::size_t bytes_transferrecd)
+// //     {
+// //         if (!ec)
+// //         {
+// //             std::cout << "server receive data is: " << _data << std::endl;
+// //             boost::asio::async_write(_socket, boost::asio::buffer(_data, bytes_transferrecd),
+// //                                      [this](const boost::system::error_code &ec, std::size_t /*bytes_sent*/)
+// //                                      {
+// //                                          handle_write(ec);
+// //                                      });
+// //         }
+// //         else
+// //         {
+// //             std::cout << "read error" << std::endl;
+// //             delete this;
+// //         }
+// //     }
+// //     void handle_write(const boost::system::error_code &ec)
+// //     {
+// //         if (!ec)
+// //         {
+// //             memset(_data, 0, max_length);
+// //             _socket.async_read_some(boost::asio::buffer(_data, max_length),
+// //                                     [this](const boost::system::error_code &ec, std::size_t bytes_transferrecd)
+// //                                     {
+// //                                         handle_read(ec, bytes_transferrecd);
+// //                                     });
+// //         }
+// //         else
+// //         {
+// //             std::cout << "write error" << std::endl;
+// //             delete this;
+// //         }
+// //     }
+// //     tcp::socket _socket;
+// //     enum
+// //     {
+// //         max_length = 1024
+// //     };
+// //     char _data[max_length];
+// // };
+// // class Server
+// // {
+// // private:
+// //     void start_accept()
+// //     {
+// //         Session *new_session = new Session(_ioc);
+// //         _acceptor.async_accept(new_session->Socket(), [this, &new_session](const boost::system::error_code &ec)
+// //                                { handle_accept(new_session, ec); });
+// //     }
+// //     void handle_accept(Session *new_session, const boost::system::error_code &ec)
+// //     {
+// //         if (!ec)
+// //         {
+// //             new_session->Start();
+// //         }
+// //         else
+// //         {
+// //             std::cout << "failed" << std::endl;
+// //             delete new_session;
+// //         }
+// //         start_accept();
+// //     }
+// //     boost::asio::io_context &_ioc;
+// //     tcp::acceptor _acceptor;
+// //     伪闭包实现 std::map<std::string, std::shared_ptr<Session>> _session;
 
 // public:
 //     Server(boost::asio::io_context &ioc, short port) : _ioc(ioc), _acceptor(ioc, tcp::endpoint(tcp::v4(), port))
@@ -167,9 +168,10 @@ public:
 
     void Start()
     {
-        ::memset(_data, 0, MAX_LENGTH);
-        _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH), std::bind(&CSession::HandleRead, this,
-                                                                                  std::placeholders::_1, std::placeholders::_2, SharedSelf()));
+        _recv_head_node->Clear();
+        boost::asio::async_read(_socket, boost::asio::buffer(_recv_head_node->_data, HEAD_LENGTH),
+                                [this](const boost::system::error_code &ec, size_t size)
+                                { HandleReadHand(ec, size, SharedSelf()); });
     }
 
     void Send(char *msg, int max_length)
@@ -203,10 +205,12 @@ public:
         return shared_from_this();
     }
 
+    void PrintRecvData(char *data, int length);
+    void HandleReadHand(const boost::system::error_code &ec, size_t bytes_transferred, std::shared_ptr<CSession> shared_self);
+    void HandleReadMsg(const boost::system::error_code &ec, size_t bytes_transferred, std::shared_ptr<CSession> shared_self);
+
     void HandleWrite(const boost::system::error_code &error, std::shared_ptr<CSession> shared_self);
-
     void HandleRead(const boost::system::error_code &error, size_t bytes_transferred, std::shared_ptr<CSession> shared_self);
-
     tcp::socket _socket;
     std::string _uuid;
     char _data[MAX_LENGTH];
@@ -259,6 +263,7 @@ private:
 };
 void CSession::HandleRead(const boost::system::error_code &error, size_t bytes_transferred, std::shared_ptr<CSession> shared_self)
 {
+    // 比较复杂，在于async_read_some函数是只要有数据的传递，就会返回数据，所以长度是不可控的；
     if (!error)
     {
         // 已经移动的字符数
@@ -394,6 +399,79 @@ void CSession::HandleWrite(const boost::system::error_code &error, std::shared_p
         Close();
         _server->ClearSession(_uuid);
     }
+}
+void CSession::HandleReadHand(const boost::system::error_code &ec, size_t bytes_transferred, std::shared_ptr<CSession> shared_self)
+{
+    if (!ec)
+    {
+        if (bytes_transferred < HEAD_LENGTH)
+        {
+            std::cout << "read head length error";
+            Close();
+            _server->ClearSession(_uuid);
+            return;
+        }
+
+        // 头部解析
+        short data_len = 0;
+        memcpy(&data_len, _recv_head_node->_data, HEAD_LENGTH);
+        data_len = boost::asio::detail::socket_ops::network_to_host_short(data_len);
+        std::cout << "data len is " << data_len << std::endl;
+
+        if (data_len > MAX_LENGTH)
+        {
+            std::cout << "invalid data length is " << data_len << std::endl;
+            _server->ClearSession(_uuid);
+            return;
+        }
+
+        _recv_msg_node = std::make_shared<MsgNode>(data_len);
+        boost::asio::async_read(_socket, boost::asio::buffer(_recv_msg_node->_data, _recv_msg_node->_total_len),
+                                [this, shared_self](const boost::system::error_code &ec, size_t bytes_transferred)
+                                { HandleReadMsg(ec, bytes_transferred, shared_self); });
+    }
+    else
+    {
+        std::cout << "handle read head failed,error is " << ec.what() << std::endl;
+        Close();
+        _server->ClearSession(_uuid);
+    }
+}
+void CSession::HandleReadMsg(const boost::system::error_code &ec, size_t bytes_transferred, std::shared_ptr<CSession> shared_self)
+{
+    if (!ec)
+    {
+        PrintRecvData(_data, bytes_transferred);
+        std::chrono::milliseconds dura(2000);
+        std::this_thread::sleep_for(dura);
+        _recv_msg_node->_data[_recv_msg_node->_total_len] = '\0';
+        std::cout << "receive data is" << _recv_msg_node->_data << std::endl;
+        Send(_recv_msg_node->_data, _recv_msg_node->_total_len);
+
+        _recv_head_node->Clear();
+        boost::asio::async_read(_socket, boost::asio::buffer(_recv_head_node->_data, HEAD_LENGTH),
+                                [this, shared_self](const boost::system::error_code &ec, size_t size)
+                                { HandleReadHand(ec, size, shared_self); });
+    }
+    else
+    {
+        std::cout << "handle read msg failed,error is " << ec.what() << std::endl;
+        Close();
+        _server->ClearSession(_uuid);
+    }
+}
+void CSession::PrintRecvData(char *data, int length)
+{
+    std::stringstream ss;
+    std::string result = "0x";
+    for (int i = 0; i < length; i++)
+    {
+        std::string hexstr;
+        ss << std::hex << std::setw(2) << std::setfill('0') << int(data[i]) << std::endl;
+        ss >> hexstr;
+        result += hexstr;
+    }
+    std::cout << "receive raw data is: " << result << std::endl;
 }
 int main()
 {
