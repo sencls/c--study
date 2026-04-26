@@ -16,7 +16,8 @@
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe",
                 "-lws2_32",
-                "-lmswsock"
+                "-lmswsock",
+                "-lstdc++fs",
             ],
             "options": {
                 "cwd": "${fileDirname}",

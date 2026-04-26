@@ -39,7 +39,7 @@ int main()
         // 转为网络字节序
         int request_host_length = boost::asio::detail::socket_ops::host_to_network_short(request_length);
         memcpy(send_data + 2, &request_host_length, 2);
-        memcpy(send_data + 4, request.c_str(), request_length);
+        memcpy(send_data + 4, request.data(), request_length);
         boost::asio::write(sock, boost::asio::buffer(send_data, request_length + 4));
         cout << "begin to receive..." << endl;
 
