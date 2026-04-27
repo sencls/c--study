@@ -3,8 +3,10 @@
 #include "Const.h"
 #include <iostream>
 #include <boost/asio.hpp>
+#include "LogicSystem.h"
 using namespace std;
 using boost::asio::ip::tcp;
+class LogicSystem;
 class MsgNode
 {
 public:
@@ -33,6 +35,8 @@ public:
 
 class RecvNode : public MsgNode
 {
+    friend class LogicSystem;
+
 public:
     RecvNode(short max_len, short msg_id) : MsgNode(max_len + HEAD_TOTAL_LEN), _msg_id(msg_id) {}
 
