@@ -5,7 +5,6 @@
 #include <thread>
 #include <map>
 #include <functional>
-#include <Const.h>
 #include "CSession.h"
 #include "../../third_party/json/json.h"
 #include "../../third_party/json/value.h"

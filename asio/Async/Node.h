@@ -3,7 +3,6 @@
 #include "Const.h"
 #include <iostream>
 #include <boost/asio.hpp>
-#include "LogicSystem.h"
 using namespace std;
 using boost::asio::ip::tcp;
 class LogicSystem;
