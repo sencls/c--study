@@ -1,6 +1,6 @@
 #include "CServer.h"
 #include <iostream>
-
+#include "IOServicePool.h"
 CServer::CServer(boost::asio::io_context &ioc, short port)
     : _ioc(ioc), _port(port), _acceptor(_ioc, tcp::endpoint(tcp::v4(), port))
 {
@@ -30,7 +30,9 @@ void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::s
 
 void CServer::StartAccept()
 {
-    std::shared_ptr<CSession> new_session = std::make_shared<CSession>(_ioc, this);
+    auto &io_context = IOServicePool::GetInstacne()->GetIOService();
+    std::shared_ptr<CSession>
+        new_session = std::make_shared<CSession>(_ioc, this);
     _acceptor.async_accept(new_session->GetSocket(), [this, new_session](const boost::system::error_code &ec)
                            { HandleAccept(new_session, ec); });
 }
