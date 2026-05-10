@@ -30,9 +30,9 @@ void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::s
 
 void CServer::StartAccept()
 {
-    auto &io_context = IOServicePool::GetInstacne()->GetIOService();
-    std::shared_ptr<CSession>
-        new_session = std::make_shared<CSession>(_ioc, this);
+    // auto &io_context = IOServicePool::GetInstacne()->GetIOService();//使用IOServicePool
+    // std::shared_ptr<CSession> new_session = std::make_shared<CSession>(io_context, this);
+    std::shared_ptr<CSession> new_session = std::make_shared<CSession>(_ioc, this);
     _acceptor.async_accept(new_session->GetSocket(), [this, new_session](const boost::system::error_code &ec)
                            { HandleAccept(new_session, ec); });
 }

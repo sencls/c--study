@@ -9,7 +9,7 @@
 #include "../../third_party/json/reader.h"
 
 CSession::CSession(boost::asio::io_context &io_context, CServer *server)
-    : _socket(io_context), _server(server), _b_close(false), _b_head_parse(false)
+    : _socket(io_context), _server(server), _b_close(false), _b_head_parse(false), _strand(io_context.get_executor())
 {
     boost::uuids::uuid a_uuid = boost::uuids::random_generator()();
     _uuid = boost::uuids::to_string(a_uuid);
@@ -35,8 +35,8 @@ void CSession::Start()
 {
     memset(_data, 0, MAX_LENGTH);
     _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH),
-                            std::bind(&HandleRead, this,
-                                      std::placeholders::_1, std::placeholders::_2, SharedSelf()));
+                            boost::asio::bind_executor(_strand,
+                                                       std::bind(&HandleRead, this, std::placeholders::_1, std::placeholders::_2, SharedSelf())));
 }
 
 void CSession::Send(std::string msg, short msgid)
@@ -56,7 +56,7 @@ void CSession::Send(std::string msg, short msgid)
     }
     auto &msgnode = _send_que.front();
     boost::asio::async_write(_socket, boost::asio::buffer(msgnode->_data, msgnode->_total_len),
-                             std::bind(&CSession::HandleWrite, this, std::placeholders::_1, SharedSelf()));
+                             boost::asio::bind_executor(_strand, std::bind(&CSession::HandleWrite, this, std::placeholders::_1, SharedSelf())));
 }
 
 void CSession::Send(char *msg, int max_length, short msgid)
@@ -76,7 +76,7 @@ void CSession::Send(char *msg, int max_length, short msgid)
     }
     auto &msgnode = _send_que.front();
     boost::asio::async_write(_socket, boost::asio::buffer(msgnode->_data, msgnode->_total_len),
-                             std::bind(&CSession::HandleWrite, this, std::placeholders::_1, SharedSelf()));
+                             boost::asio::bind_executor(_strand, std::bind(&CSession::HandleWrite, this, std::placeholders::_1, SharedSelf())));
 }
 
 void CSession::Close()
@@ -110,7 +110,7 @@ void CSession::HandleRead(const boost::system::error_code &error, size_t bytes_t
                         _recv_head_node->_cur_len += bytes_transferred;
                         ::memset(_data, 0, MAX_LENGTH);
                         _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH),
-                                                std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self));
+                                                 boost::asio::bind_executor(_strand, std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self)));
                         return;
                     }
                     // 收到的数据比头部多
@@ -155,7 +155,7 @@ void CSession::HandleRead(const boost::system::error_code &error, size_t bytes_t
                         _recv_msg_node->_cur_len += bytes_transferred;
                         ::memset(_data, 0, MAX_LENGTH);
                         _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH),
-                                                std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self));
+                                                boost::asio::bind_executor(_strand, std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self)));
                         // 头部处理完成
                         _b_head_parse = true;
                         return;
@@ -175,7 +175,7 @@ void CSession::HandleRead(const boost::system::error_code &error, size_t bytes_t
                     {
                         ::memset(_data, 0, MAX_LENGTH);
                         _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH),
-                                                std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self));
+                                                boost::asio::bind_executor(_strand, std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self)));
                         return;
                     }
                     continue;
@@ -190,7 +190,7 @@ void CSession::HandleRead(const boost::system::error_code &error, size_t bytes_t
                     _recv_msg_node->_cur_len += bytes_transferred;
                     ::memset(_data, 0, MAX_LENGTH);
                     _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH),
-                                            std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self));
+                                            boost::asio::bind_executor(_strand, std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self)));
                     return;
                 }
                 memcpy(_recv_msg_node->_data + _recv_msg_node->_cur_len, _data + copy_len, remain_msg);
@@ -207,7 +207,7 @@ void CSession::HandleRead(const boost::system::error_code &error, size_t bytes_t
                 {
                     ::memset(_data, 0, MAX_LENGTH);
                     _socket.async_read_some(boost::asio::buffer(_data, MAX_LENGTH),
-                                            std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self));
+                                            boost::asio::bind_executor(_strand, std::bind(&CSession::HandleRead, this, std::placeholders::_1, std::placeholders::_2, shared_self)));
                     return;
                 }
                 continue;
@@ -239,7 +239,7 @@ void CSession::HandleWrite(const boost::system::error_code &error, std::shared_p
             {
                 auto &msgnode = _send_que.front();
                 boost::asio::async_write(_socket, boost::asio::buffer(msgnode->_data, msgnode->_total_len),
-                                         std::bind(&CSession::HandleWrite, this, std::placeholders::_1, shared_self));
+                                         boost::asio::bind_executor(_strand, bind(&CSession::HandleWrite, this, std::placeholders::_1, shared_self)));
             }
         }
         else

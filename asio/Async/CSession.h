@@ -42,6 +42,7 @@ public:
     bool _b_head_parse;
     // 收到的头部结构
     std::shared_ptr<MsgNode> _recv_head_node;
+    boost::asio::strand<boost::asio::io_context::executor_type>_strand;//使用ThreadPool
 };
 
 class LogicNode
