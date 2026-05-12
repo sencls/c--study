@@ -37,8 +37,6 @@ class RecvNode : public MsgNode
 {
 public:
     RecvNode(short max_len, short msg_id) : MsgNode(max_len), _msg_id(msg_id) {}
-
-private:
     short _msg_id;
 };
 

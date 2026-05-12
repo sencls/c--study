@@ -12,7 +12,7 @@
 #include <memory>
 #include "Const.h"
 #include <queue>
-
+#include "LogicSystem.h"
 using boost::asio::detached;
 using boost::asio::io_context;
 using boost::asio::strand;
@@ -115,7 +115,8 @@ public:
 
                             _recv_msg_node->_data[_recv_msg_node->_total_len]='\0';
                             std::cout <<"receive data is "<<_recv_msg_node->_data <<std::endl;
-
+                            
+                            LogicSystem::Getinstance().PostMsgToQue(std::make_shared<LogicNode>(shared_from_this(),_recv_msg_node));
 
                         }
                      }
@@ -136,7 +137,8 @@ public:
         }
 
         _send_que.push(std::make_shared<SendNode>(msg, max_length, msgid));
-
+        if (send_que_size > 0)
+            return;
         auto msgnode = _send_que.front();
         lock.unlock();
         boost::asio::async_write(_socket, boost::asio::buffer(msgnode->_data, msgnode->_total_len), [this](auto a, auto b)

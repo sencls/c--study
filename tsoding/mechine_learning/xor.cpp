@@ -5,7 +5,10 @@ using namespace std;
 
 using sample = vector<vector<float>>;
 
-sample xor_train = {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}};
+sample xor_train = {{0, 0, 0}, {1, 0, 1}, {0, 1, 1}, {1, 1, 0}};
+sample and_train = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 1}};
+sample or_train = {{0, 0, 0}, {1, 0, 1}, {0, 1, 1}, {1, 1, 1}};
+sample nand_train = {{0, 0, 1}, {1, 0, 1}, {0, 1, 1}, {1, 1, 0}};
 float rand_float()
 {
     return (float)rand() / (float)RAND_MAX;
@@ -45,7 +48,7 @@ float forward(XOR m, float x1, float x2)
     return sigmoid(m.and_w1 * a + m.and_w2 * b + m.and_b);
 }
 
-sample &train = xor_train;
+sample &train = and_train;
 size_t train_count = 4;
 
 float cost(XOR m)
@@ -84,13 +87,91 @@ void print_xor(XOR m)
     m.println();
 }
 
-float finite_diff(XOR m)
+XOR finite_diff(XOR m, float eps)
 {
+    XOR g;
+    float c = cost(m);
+    float saved;
+
+    saved = m.or_w1;
+    m.or_w1 += eps;
+    g.or_w1 = (cost(m) - c) / eps;
+    m.or_w1 = saved;
+
+    saved = m.or_w2;
+    m.or_w2 += eps;
+    g.or_w2 = (cost(m) - c) / eps;
+    m.or_w2 = saved;
+
+    saved = m.or_b;
+    m.or_b += eps;
+    g.or_b = (cost(m) - c) / eps;
+    m.or_b = saved;
+
+    saved = m.nand_w1;
+    m.nand_w1 += eps;
+    g.nand_w1 = (cost(m) - c) / eps;
+    m.nand_w1 = saved;
+
+    saved = m.nand_w2;
+    m.nand_w2 += eps;
+    g.nand_w2 = (cost(m) - c) / eps;
+    m.nand_w2 = saved;
+
+    saved = m.nand_b;
+    m.nand_b += eps;
+    g.nand_b = (cost(m) - c) / eps;
+    m.nand_b = saved;
+
+    saved = m.and_w1;
+    m.and_w1 += eps;
+    g.and_w1 = (cost(m) - c) / eps;
+    m.and_w1 = saved;
+
+    saved = m.and_w2;
+    m.and_w2 += eps;
+    g.and_w2 = (cost(m) - c) / eps;
+    m.and_w2 = saved;
+
+    saved = m.and_b;
+    m.and_b += eps;
+    g.and_b = (cost(m) - c) / eps;
+    m.and_b = saved;
+    return g;
 }
+
+XOR learn(XOR m, XOR g, float rate)
+{
+    m.or_w1 -= rate * g.or_w1;
+    m.or_w2 -= rate * g.or_w2;
+    m.or_b -= rate * g.or_b;
+    m.nand_w1 -= rate * g.nand_w1;
+    m.nand_w2 -= rate * g.nand_w2;
+    m.nand_b -= rate * g.nand_b;
+    m.and_w1 -= rate * g.and_w1;
+    m.and_w2 -= rate * g.and_w2;
+    m.and_b -= rate * g.and_b;
+    return m;
+}
+float and_b;
 
 int main()
 {
     XOR m = rand_xor();
-    print_xor(m);
+    const float eps = 1e-1, rate = 1e-1;
+    for (int i = 0; i < 100000; ++i)
+    {
+        XOR g = finite_diff(m, eps);
+        cout << cost(m) << ' ';
+        m = learn(m, g, rate);
+        cout << cost(m) << endl;
+    }
+    for (int i = 0; i < 2; ++i)
+    {
+        for (int j = 0; j < 2; ++j)
+        {
+            cout << i << '^' << j << ' ' << forward(m, i, j) << endl;
+        }
+    }
     return 0;
 }
