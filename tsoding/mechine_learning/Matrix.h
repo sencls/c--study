@@ -4,6 +4,7 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
+#include <string>
 float rand_float()
 {
     return (float)rand() / (float)RAND_MAX;
@@ -15,9 +16,17 @@ float sigmoidf(float x)
 class Matrix
 {
 public:
-#define mat_printn(x) mat_print(x, #x)
-    Matrix(size_t rows, size_t cols, float value = 0) : _rows(rows),
-                                                        _cols(cols), matrix(rows, std::vector<float>(cols, value)) {}
+    Matrix() {}
+    Matrix(size_t rows, size_t cols, std::vector<std::vector<float>> t) : _rows(rows), _cols(cols), matrix(t) {}
+    Matrix(size_t rows, size_t cols, float value = 0.f) : _rows(rows), _cols(cols), matrix(std::vector<std::vector<float>>(rows, std::vector<float>(cols, value))) {}
+    friend void mat_size(Matrix &m, size_t rows, size_t cols)
+    {
+        m._cols = cols;
+        m._rows = rows;
+        std::vector<std::vector<float>> t(rows, std::vector<float>(cols, 0.f));
+        m.matrix = std::move(t);
+    }
+
     friend Matrix operator+(const Matrix &a, const Matrix &b)
     {
         assert(b._cols == a._cols && b._rows == a._rows);
@@ -50,19 +59,30 @@ public:
         }
         return t;
     }
-    friend void mat_print(Matrix &other, std::string name)
+
+#define mat_printn(x, padding, i) mat_print(x, #x, padding, i)
+    friend void mat_print(Matrix other, std::string name, size_t padding, int cnt)
     {
+        name.erase(name.begin() + name.find("m."));
+        name.erase(name.begin());
+        name[name.find("[") + 1] = '0' + cnt;
+        for (int i = 0; i < padding; ++i)
+            std::cout << " ";
         std::cout << name << "=[\n";
         for (const auto &t : other.matrix)
         {
+            std::cout << "     ";
             for (const auto &v : t)
             {
                 std::cout << v << ' ';
             }
             std::cout << '\n';
         }
+        for (int i = 0; i < padding; ++i)
+            std::cout << " ";
         std::cout << "]\n";
     }
+
     friend void mat_rand(Matrix &other, float low, float high)
     {
 
@@ -74,6 +94,7 @@ public:
             }
         }
     }
+
     std::vector<float> &operator[](int x)
     {
         return matrix[x];
@@ -85,13 +106,94 @@ public:
         {
             for (int j = 0; j < m._cols; ++j)
             {
-                m[j][j] = sigmoidf(m[i][j]);
+
+                m[i][j] = sigmoidf(m[i][j]);
             }
         }
     }
 
+    friend Matrix mat_row(Matrix m, size_t row)
+    {
+        Matrix t(1, m._cols);
+        t[0] = m[row];
+        return t;
+    }
+    friend void mat_copy(Matrix &dst, Matrix &src)
+    {
+        assert(dst._rows == src._rows);
+        assert(dst._cols == src._cols);
+        for (int i = 0; i < dst._rows; ++i)
+        {
+            for (int j = 0; j < src._cols; ++j)
+            {
+                dst[i][j] = src[i][j];
+            }
+        }
+    }
+    const size_t getcol() const
+    {
+        return _cols;
+    }
+    const size_t getrow() const
+    {
+        return _rows;
+    }
+    friend Matrix mat_sub(Matrix &m, size_t x, size_t y, size_t xt = 0, size_t yt = 0)
+    {
+        Matrix t(x, y);
+        int row = x + xt, col = y + yt;
+        for (int i = xt; i < row; ++i)
+        {
+            for (int j = yt; j < col; ++j)
+            {
+                t[i - xt][j - yt] = m[i][j];
+            }
+        }
+        return t;
+    }
+
 private:
-    std::size_t _rows;
-    std::size_t _cols;
+    std::size_t _rows = 0;
+    std::size_t _cols = 0;
     std::vector<std::vector<float>> matrix;
 };
+struct Xor
+{
+    size_t count;
+    std::vector<Matrix> ws, bs, as;
+};
+Xor create(std::vector<size_t> arch, size_t arch_count)
+{
+    Xor m;
+    m.count = arch_count - 1;
+    m.bs.resize(m.count);
+    m.ws.resize(m.count);
+    m.as.resize(m.count + 1);
+    mat_size(m.as[0], 1, arch[0]);
+    for (int i = 1; i < arch_count; ++i)
+    {
+        mat_size(m.ws[i - 1], m.as[i - 1].getcol(), arch[i]);
+        mat_size(m.bs[i - 1], 1, arch[i]);
+        mat_size(m.as[i], 1, arch[i]);
+    }
+    return m;
+}
+#define print_xorn(x) print_xor(x, #x)
+void Xor_random(Xor &m, float low, float high)
+{
+    for (int i = 0; i < m.count; ++i)
+    {
+        mat_rand(m.ws[i], low, high);
+        mat_rand(m.bs[i], low, high);
+    }
+}
+void print_xor(const Xor &m, std::string name)
+{
+    std::cout << name << "=[\n";
+    for (size_t i = 0; i < m.count; ++i)
+    {
+        mat_printn(m.ws[i], 4, i);
+        mat_printn(m.bs[i], 4, i);
+    }
+    std::cout << "]\n";
+}
