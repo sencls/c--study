@@ -60,7 +60,7 @@ public:
         return t;
     }
 
-#define mat_printn(x, padding, i) mat_print(x, #x, padding, i)
+#define mat_printnl(x, padding, i) mat_print(x, #x, padding, i)
     friend void mat_print(Matrix other, std::string name, size_t padding, int cnt)
     {
         name.erase(name.begin() + name.find("m."));
@@ -82,7 +82,24 @@ public:
             std::cout << " ";
         std::cout << "]\n";
     }
+#define mat_printn(x) mat_print(x, #x)
+    friend void mat_print(Matrix other, std::string name)
+    {
 
+        std::cout << " ";
+        std::cout << name << "=[\n";
+        for (const auto &t : other.matrix)
+        {
+            std::cout << "     ";
+            for (const auto &v : t)
+            {
+                std::cout << v << ' ';
+            }
+            std::cout << '\n';
+        }
+
+        std::cout << "]\n";
+    }
     friend void mat_rand(Matrix &other, float low, float high)
     {
 
@@ -118,7 +135,7 @@ public:
         t[0] = m[row];
         return t;
     }
-    friend void mat_copy(Matrix &dst, Matrix &src)
+    friend void mat_copy(Matrix &dst, Matrix src)
     {
         assert(dst._rows == src._rows);
         assert(dst._cols == src._cols);
@@ -138,7 +155,7 @@ public:
     {
         return _rows;
     }
-    friend Matrix mat_sub(Matrix &m, size_t x, size_t y, size_t xt = 0, size_t yt = 0)
+    friend Matrix mat_sub(Matrix m, size_t x, size_t y, size_t xt = 0, size_t yt = 0)
     {
         Matrix t(x, y);
         int row = x + xt, col = y + yt;
@@ -192,8 +209,91 @@ void print_xor(const Xor &m, std::string name)
     std::cout << name << "=[\n";
     for (size_t i = 0; i < m.count; ++i)
     {
-        mat_printn(m.ws[i], 4, i);
-        mat_printn(m.bs[i], 4, i);
+        mat_printnl(m.ws[i], 4, i);
+        mat_printnl(m.bs[i], 4, i);
     }
     std::cout << "]\n";
+}
+void Xor_forward(Xor &m)
+{
+    for (int i = 0; i < m.count; ++i)
+    {
+
+        m.as[i + 1] = (m.as[i]) * (m.ws[i]) + m.bs[i];
+        mat_sig(m.as[i + 1]);
+    }
+}
+#define INPUT(x) (x).as[0]
+#define OUTPUT(x) (x).as[(x).count]
+float Xor_cost(Xor m, Matrix &ti, Matrix &to)
+{
+    assert(ti.getrow() == to.getrow());
+    assert(to.getcol() == OUTPUT(m).getcol());
+    size_t n = ti.getrow();
+    float c = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        Matrix x = mat_row(ti, i);
+        Matrix y = mat_row(to, i);
+        mat_copy(INPUT(m), x);
+        Xor_forward(m);
+
+        size_t q = to.getcol();
+        for (int j = 0; j < q; ++j)
+        {
+            float d = OUTPUT(m)[0][j] - y[0][j];
+            c += d * d;
+        }
+    }
+    return c / n;
+}
+void Xor_finite_diff(Xor &m, Xor &g, float eps, Matrix &ti, Matrix &to)
+{
+    float saved;
+    float c = Xor_cost(m, ti, to);
+    for (int i = 0; i < m.count; ++i)
+    {
+        for (int j = 0; j < m.ws[i].getrow(); ++j)
+        {
+            for (int k = 0; k < m.ws[i].getcol(); ++k)
+            {
+                saved = m.ws[i][j][k];
+                m.ws[i][j][k] += eps;
+                g.ws[i][j][k] = (Xor_cost(m, ti, to) - c) / eps;
+                m.ws[i][j][k] = saved;
+            }
+        }
+
+        for (int j = 0; j < m.bs[i].getrow(); ++j)
+        {
+            for (int k = 0; k < m.bs[i].getcol(); ++k)
+            {
+                saved = m.bs[i][j][k];
+                m.bs[i][j][k] += eps;
+                g.bs[i][j][k] = (Xor_cost(m, ti, to) - c) / eps;
+                m.bs[i][j][k] = saved;
+            }
+        }
+    }
+}
+void Xor_learn(Xor &m, Xor &g, float rate)
+{
+    for (int i = 0; i < m.count; ++i)
+    {
+        for (int j = 0; j < m.ws[i].getrow(); ++j)
+        {
+            for (int k = 0; k < m.ws[i].getcol(); ++k)
+            {
+                m.ws[i][j][k] -= rate * g.ws[i][j][k];
+            }
+        }
+
+        for (int j = 0; j < m.bs[i].getrow(); ++j)
+        {
+            for (int k = 0; k < m.bs[i].getcol(); ++k)
+            {
+                m.bs[i][j][k] -= rate * g.bs[i][j][k];
+            }
+        }
+    }
 }
