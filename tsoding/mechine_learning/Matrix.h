@@ -168,6 +168,16 @@ public:
         }
         return t;
     }
+    friend void setMatValue(Matrix &t)
+    {
+        for (auto &s : t.matrix)
+        {
+            for (auto &v : s)
+            {
+                v = 0.f;
+            }
+        }
+    }
 
 private:
     std::size_t _rows = 0;
@@ -179,6 +189,21 @@ struct Xor
     size_t count;
     std::vector<Matrix> ws, bs, as;
 };
+void setValue(Xor &m)
+{
+    for (auto &t : m.ws)
+    {
+        setMatValue(t);
+    }
+    for (auto &t : m.bs)
+    {
+        setMatValue(t);
+    }
+    for (auto &t : m.as)
+    {
+        setMatValue(t);
+    }
+}
 Xor create(std::vector<size_t> arch, size_t arch_count)
 {
     Xor m;
@@ -225,7 +250,7 @@ void Xor_forward(Xor &m)
 }
 #define INPUT(x) (x).as[0]
 #define OUTPUT(x) (x).as[(x).count]
-float Xor_cost(Xor m, Matrix &ti, Matrix &to)
+float Xor_cost(Xor &m, Matrix &ti, Matrix &to)
 {
     assert(ti.getrow() == to.getrow());
     assert(to.getcol() == OUTPUT(m).getcol());
@@ -293,6 +318,62 @@ void Xor_learn(Xor &m, Xor &g, float rate)
             for (int k = 0; k < m.bs[i].getcol(); ++k)
             {
                 m.bs[i][j][k] -= rate * g.bs[i][j][k];
+            }
+        }
+    }
+}
+
+void back_prop(Xor &m, Xor &g, Matrix ti, Matrix to)
+{
+    assert(ti.getrow() == to.getrow());
+    size_t n = ti.getrow();
+    assert(OUTPUT(m).getcol() == to.getcol());
+
+    setValue(g);
+    for (int i = 0; i < n; ++i)
+    {
+        mat_copy(INPUT(m), mat_row(ti, i));
+        Xor_forward(m);
+        for (int j = 0; j <= g.count; ++j)
+        {
+            setMatValue(g.as[j]);
+        }
+        for (size_t j = 0; j < to.getcol(); ++j)
+        {
+            OUTPUT(g)
+            [0][j] = OUTPUT(m)[0][j] - (to[i][j]);
+        }
+        for (int l = m.count; l > 0; --l)
+        {
+            for (int j = 0; j < m.as[l].getcol(); ++j)
+            {
+                float a = m.as[l][0][j];
+                float da = g.as[l][0][j];
+                g.bs[l - 1][0][j] += 2 * da * a * (1 - a);
+                for (int k = 0; k < m.as[l - 1].getcol(); ++k)
+                {
+                    float pa = m.as[l - 1][0][k];
+                    float w = m.ws[l - 1][k][j];
+                    g.ws[l - 1][k][j] += 2 * da * a * (1 - a) * pa;
+                    g.as[l - 1][0][k] += 2 * da * a * (1 - a) * w;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < g.count; ++i)
+    {
+        for (int j = 0; j < g.ws[i].getrow(); ++j)
+        {
+            for (int k = 0; k < g.ws[i].getcol(); ++k)
+            {
+                g.ws[i][j][k] /= n;
+            }
+        }
+        for (int j = 0; j < g.bs[i].getrow(); ++j)
+        {
+            for (int k = 0; k < g.bs[i].getcol(); ++k)
+            {
+                g.bs[i][j][k] /= n;
             }
         }
     }
