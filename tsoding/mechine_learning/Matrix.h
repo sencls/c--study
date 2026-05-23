@@ -184,12 +184,12 @@ private:
     std::size_t _cols = 0;
     std::vector<std::vector<float>> matrix;
 };
-struct Xor
+struct NetWork
 {
     size_t count;
     std::vector<Matrix> ws, bs, as;
 };
-void setValue(Xor &m)
+void setValue(NetWork &m)
 {
     for (auto &t : m.ws)
     {
@@ -204,9 +204,9 @@ void setValue(Xor &m)
         setMatValue(t);
     }
 }
-Xor create(std::vector<size_t> arch, size_t arch_count)
+NetWork create(std::vector<size_t> arch, size_t arch_count)
 {
-    Xor m;
+    NetWork m;
     m.count = arch_count - 1;
     m.bs.resize(m.count);
     m.ws.resize(m.count);
@@ -221,7 +221,7 @@ Xor create(std::vector<size_t> arch, size_t arch_count)
     return m;
 }
 #define print_xorn(x) print_xor(x, #x)
-void Xor_random(Xor &m, float low, float high)
+void random(NetWork &m, float low, float high)
 {
     for (int i = 0; i < m.count; ++i)
     {
@@ -229,7 +229,7 @@ void Xor_random(Xor &m, float low, float high)
         mat_rand(m.bs[i], low, high);
     }
 }
-void print_xor(const Xor &m, std::string name)
+void print_xor(const NetWork &m, std::string name)
 {
     std::cout << name << "=[\n";
     for (size_t i = 0; i < m.count; ++i)
@@ -239,7 +239,7 @@ void print_xor(const Xor &m, std::string name)
     }
     std::cout << "]\n";
 }
-void Xor_forward(Xor &m)
+void forward(NetWork &m)
 {
     for (int i = 0; i < m.count; ++i)
     {
@@ -250,7 +250,7 @@ void Xor_forward(Xor &m)
 }
 #define INPUT(x) (x).as[0]
 #define OUTPUT(x) (x).as[(x).count]
-float Xor_cost(Xor &m, Matrix &ti, Matrix &to)
+float cost(NetWork &m, Matrix &ti, Matrix &to)
 {
     assert(ti.getrow() == to.getrow());
     assert(to.getcol() == OUTPUT(m).getcol());
@@ -261,7 +261,7 @@ float Xor_cost(Xor &m, Matrix &ti, Matrix &to)
         Matrix x = mat_row(ti, i);
         Matrix y = mat_row(to, i);
         mat_copy(INPUT(m), x);
-        Xor_forward(m);
+        forward(m);
 
         size_t q = to.getcol();
         for (int j = 0; j < q; ++j)
@@ -272,10 +272,10 @@ float Xor_cost(Xor &m, Matrix &ti, Matrix &to)
     }
     return c / n;
 }
-void Xor_finite_diff(Xor &m, Xor &g, float eps, Matrix &ti, Matrix &to)
+void finite_diff(NetWork &m, NetWork &g, float eps, Matrix &ti, Matrix &to)
 {
     float saved;
-    float c = Xor_cost(m, ti, to);
+    float c = cost(m, ti, to);
     for (int i = 0; i < m.count; ++i)
     {
         for (int j = 0; j < m.ws[i].getrow(); ++j)
@@ -284,7 +284,7 @@ void Xor_finite_diff(Xor &m, Xor &g, float eps, Matrix &ti, Matrix &to)
             {
                 saved = m.ws[i][j][k];
                 m.ws[i][j][k] += eps;
-                g.ws[i][j][k] = (Xor_cost(m, ti, to) - c) / eps;
+                g.ws[i][j][k] = (cost(m, ti, to) - c) / eps;
                 m.ws[i][j][k] = saved;
             }
         }
@@ -295,13 +295,13 @@ void Xor_finite_diff(Xor &m, Xor &g, float eps, Matrix &ti, Matrix &to)
             {
                 saved = m.bs[i][j][k];
                 m.bs[i][j][k] += eps;
-                g.bs[i][j][k] = (Xor_cost(m, ti, to) - c) / eps;
+                g.bs[i][j][k] = (cost(m, ti, to) - c) / eps;
                 m.bs[i][j][k] = saved;
             }
         }
     }
 }
-void Xor_learn(Xor &m, Xor &g, float rate)
+void learn(NetWork &m, NetWork &g, float rate)
 {
     for (int i = 0; i < m.count; ++i)
     {
@@ -323,7 +323,7 @@ void Xor_learn(Xor &m, Xor &g, float rate)
     }
 }
 
-void back_prop(Xor &m, Xor &g, Matrix ti, Matrix to)
+void back_prop(NetWork &m, NetWork &g, Matrix ti, Matrix to)
 {
     assert(ti.getrow() == to.getrow());
     size_t n = ti.getrow();
@@ -333,7 +333,7 @@ void back_prop(Xor &m, Xor &g, Matrix ti, Matrix to)
     for (int i = 0; i < n; ++i)
     {
         mat_copy(INPUT(m), mat_row(ti, i));
-        Xor_forward(m);
+        forward(m);
         for (int j = 0; j <= g.count; ++j)
         {
             setMatValue(g.as[j]);
