@@ -29,7 +29,7 @@ int main()
         std::cout << cost(m, ti, to) << std::endl;
     }
 
-    print_xorn(m);
+    print_networkn(m);
 
     std::cout << "----------------------------------------\n";
     for (size_t i = 0; i < 2; ++i)

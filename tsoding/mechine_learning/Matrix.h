@@ -220,7 +220,7 @@ NetWork create(std::vector<size_t> arch, size_t arch_count)
     }
     return m;
 }
-#define print_xorn(x) print_xor(x, #x)
+
 void random(NetWork &m, float low, float high)
 {
     for (int i = 0; i < m.count; ++i)
@@ -229,7 +229,8 @@ void random(NetWork &m, float low, float high)
         mat_rand(m.bs[i], low, high);
     }
 }
-void print_xor(const NetWork &m, std::string name)
+#define print_networkn(x) print_network(x, #x)
+void print_network(const NetWork &m, std::string name)
 {
     std::cout << name << "=[\n";
     for (size_t i = 0; i < m.count; ++i)

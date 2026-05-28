@@ -1,6 +1,6 @@
 #include "Matrix.h"
 
-#define BITS 3
+#define BITS 2
 
 int main()
 {
