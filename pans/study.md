@@ -394,12 +394,23 @@ windows返回内核的线程ID，系统线程ID，其他系统下是线程ID的�
 thread_local 每个线程都持有该声明对象的副本，从而避免每次系统都取调用获取
 
 #### alignas 内存对齐分配。定位new(placement new)
+##### 定位new
+c++17 前使用以下方式
+typen =new(adrr) 来在对应的地址位置开辟对象
+要注意的是，malloc返回void*，new返回对应类型point
+
 alignas 强制要求后续声明的数组要内存对齐到合适位置上
+
 ```code
 alignas(std::max_align_t) std::byte m_implStorage[LOG_LINE_IMPL_SIZE]
 ```
 开辟一个长度为LOG_LINE_IMPL_SIZE,起始地址为16字节对齐的原始字节流->只是开辟了一个原始内存空间，是在栈上开辟的。
 如果不添加alignas的话，字节流开辟直接从1字节处对齐，如果最后日志中有成员变量的指针就会指在未对齐的位置上，从而出现未定义行为UB。
+
+>如地址在147的位置存放字节流，12byte大小，最后8位是一个double，按字节流reinterpret时，double起始于151的位置，不是8位的倍数，读取时解释错误。
+
+>结构和类，一般按照内部最大字节数对齐。
+
 
 alignof函数则是获取该对象类型的对齐字节数，reinterpret_cast<type>是强制类型转换
 construct_at(space，Args),该函数在于向指定空间构造类型指针,后面的Args是构造函数的参，返回的指针，编译器会认为是唯一正确的转换后的对象，但是从其他路径获得时，编译器还会认为是字节流，所以需要下面的函数，来告诉编译器这是新的类型解释
@@ -455,6 +466,8 @@ void LogPrintf(Logger &logger, LogLevel::Level level, u32 line, std::string_view
 ```
 va_list 参数遍历游标，在经过vsnprintf时，内部会通过va_arg取参数，不可修复，所以函数中要拷贝一份
 va_start(va_list,format)初始化游标，第二个参数必须是传参时...前的参数，用来定义可变参数从哪开始
+
+> 底层实现依赖于寄存器的四个指针，起始、偏移；
 va_copy 就是再复制拷贝一份
 va_end 清理收尾，所有声明的va_list都要清除
 
@@ -462,6 +475,8 @@ vsnprintf(char* buf,size_t size,const char* format ,va_list ap);
 1. 返回负数：格式串非法
 2. 返回N 这个字符应该写N个字符，不包含"\0",与size无关
 N<size 全部都装下了，buf中是完整结果；反之，被截断了，但是N会告诉应该是多少
+
+
 ### 单例模式
 经典形式：
 ```code
@@ -575,6 +590,123 @@ private:
     int m_data{0};
 };
 ```
+> 指针版本：
+1. 简易版本：非线程安全，实际上对于new对象，底层在于三个步骤，先分配空间，然后调用构造函数，返回对象指针。线程增加时，返回对象指针时，可能出现，给与未构造对象的情况
+```code
+static Singleton *Instance()
+    {
+        if (m_instance == nullptr)
+        {
+            m_instance = new Singleton();
+        }
+        return m_instance;
+    }
+inline static Singleton *m_instance = nullptr;
+```
+2. 加锁mutex
+保证安全，但是加锁解锁带来的io开销大
+```code
+static Singleton *Instance()
+    {
+        std::lock_guard<std::mutex>lock(m_mutex);
+        if (m_instance == nullptr)
+        {
+            m_instance = new Singleton();
+        }
+        return m_instance;
+    }
+inline static Singleton *m_instance = nullptr;
+inline static std::mutex m_mutex;
+```
+3. 双重检查锁
+对于编译器，指令优化时进行重排，无法确保安全，可能拿到未初始对象
+```code
+static Singleton *Instance()
+    {
+        if (m_instance == nullptr)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_instance == nullptr)
+            {
+                m_instance = new Singleton();
+            }
+        }
+        return m_instance;
+    }
+```
+4. 原子变量
+将接口声明为原子变量，通过memory_order_**指令，保证对应操作重排时，不在构造的指令前，但是缺少对应的释放器
+```code
+static Singleton *Instance()
+    {
+        Singleton *temp = m_instance.load(std::memory_order_acquire);
+        if (temp == nullptr)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            temp = m_instance.load(std::memory_order_relaxed);
+            if (temp == nullptr)
+            {
+                temp = new Singleton();
+                m_instance.store(temp, std::memory_order_release);
+            }
+        }
+        return temp;
+    }
+inline static std::atomic<Singleton *> m_instance{};
+inline static std::mutex m_mutex;
+```
+
+5. 最终版本+crtp
+增加辅助类，帮助管理对应指针，同时利用RAII机制，回收资源
+```code
+static T *Instance()
+    {
+        T *temp = m_instance.load(std::memory_order_acquire);
+        if (temp == nullptr)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            temp = m_instance.load(std::memory_order_relaxed);
+            if (temp == nullptr)
+            {
+                temp = new T();
+                // 只有成功创建实例后才注册退出清理器，并且必须在发布指针前完成。
+                RegisterCleanup();
+                m_instance.store(temp, std::memory_order_release);
+            }
+        }
+        return temp;
+    }
+
+    static void Destroy() noexcept
+    {
+        // 先撤回已发布的指针，再销毁对象，避免留下悬空的原子指针。
+        T *instance = m_instance.exchange(nullptr, std::memory_order_acq_rel);
+        delete instance;
+    }
+
+    class Cleanup
+    {
+    public:
+        Cleanup() = default;
+        Cleanup(const Cleanup &) = delete;
+        Cleanup &operator=(const Cleanup &) = delete;
+
+        ~Cleanup()
+        {
+            Singleton<T>::Destroy();
+        }
+    };
+
+    static void RegisterCleanup()
+    {
+        // 函数局部静态对象只初始化一次，并在正常退出程序时自动析构。
+        static Cleanup cleanup;
+        (void)cleanup;
+    }
+
+    inline static std::atomic<T *> m_instance{};
+    inline static std::mutex m_mutex;
+```
 
 #### static线程安全
  编译器会给每个需要动态初始化的局部 static
@@ -603,3 +735,180 @@ static Singleton &Instance() {
 }
 
 # 5. cmake引入第三方库
+第三方库，大编译库，对于wsl需要调整运行时空间大小，以及swap空间切换，从而使得系统不出现OOM
+
+智能指针，可以通过指定模板的第二个参数，来自定义删除器，这是一个可调用对象；get函数，不增加引用计数，而返回对应指针
+
+### 获取堆栈信息
+堆栈信息中，对于c++返回格式
+编译路径+行号(偏移地址)[虚拟地址]
+
+
+**在linux系统中**：
+dwfl：libdwfl库中的核心句柄，这是一个不透明结构体，只能通过指针使用。其在于代表调试信息会话的顶层上下文。处理符号化，模块管理，栈回溯。
+
+dwfl_begin(&Calbacks) 创建句柄 
+Dwfl_Callback
+```code
+ typedef struct
+  {
+    Dwfl_Callbacks_FindElf *find_elf;      // ① 根据模块名找主 ELF 文件
+    Dwfl_Find_Debuginfo    *find_debuginfo; // ② 找分离的调试信息
+    Dwfl_Callbacks_Section *section_address;// ③ 内核模块场景：节的加载地址
+    char **debuginfo_path;                  // ②的搜索路径
+  } Dwfl_Callbacks;
+```
+获取运行时进程的配置：
+>dwfl_linux_proc_find_elf, dwfl_standard_find_debuginfo, nullptr, nullptr
+
+1. dwfl_linux_proc_report
+作为报告体，统合所有的堆栈信息，然后返回
+2. dwfl_linux_end()
+该句柄的创建只能手动删除，使用该函数
+3. Dwfl_line,不透明结构体，记录report中的一条信息。
+4. dwfl_getsrc() 获取信息中的一条对象
+5. dwfl_lineinfo 返回对应的消息格式，如文件名，线程名。
+__cxa_demangle函数，返回反编译的c++文件格式，从而获得file_name;
+
+**Windows**
+该系统下，使用HANDLE 句柄来操作核心，本质也是一个不透明结构体
+
+使用DbgHeldper系统的调试文件助手，在线程上存在漏洞，需要手动加锁
+
+SymSetOption，设置HANDLE句柄的返回格式，
+1. SYMOPT_DEFERRED_LOADS 延缓符号连接，直到使用时加载
+2. SYMOPT_LOAD_LINES 加载对应的行列号
+3. SYMOPT_UNDNAME 返回时，取消对应c++文件的混淆操作
+
+对于有默认值的函数，.h声明后，.cpp其实现不需要再写默认值
+
+c++17 clamp函数
+
+# 6.配置模块
+>yaml，xml
+
+
+### 6.1 编译器确定变量类型
+或用type_traits，类型萃取
+
+编译器在编译时，对各个函数数据存有签名，直接通过各自宏获取签名
+
+c++20引入文件路径source_location
+#if defined(_MSC_VER)
+mscv编译器下，直接使用编译器宏__FUNCSIG__
+
+其余使用库函数 source_location::current().function_name();
+
+各编译器返回类型签名
+// GCC: consteval std::string_view pans::detail::TypeNameProbe() [with T = int;...]
+// Clang: std::string_view pans::detail::TypeNameProbe() [T = int]
+// MSCV: pans::detail::TypeNameProbe<int>(void) noexcept
+
+
+## 6.2 string->yaml.node转换
+
+#### [[noreturn]] 
+这个表示函数不会把控制流返回给调用者
+适合于一下情况：
+- 总是抛异常，throw
+- 总是终止程序 exit，abort，terminate
+- 无限循环
+
+在声明之后，编译器在控制语句上做优化：
+1. 对于一些死代码可以删除.不声明时，编译器不保证每个分支的出现可能，都需要注意，无法做一些优化。fatal函数声明noreturn后，编译器知道触发就会终止，路径分析会精确，同时也会消除调用之后的死存储
+```code
+int divide(int a, int b) {
+    if (b == 0)
+        fatal("div by zero");
+    return a / b;
+}
+```
+2. 同时知道函数会闭合，不要求有返回值的函数写return.c++23封装了std::unreachable()作为这个用途
+```code
+int parse(int t) {
+    switch (t) {
+    case 1: return 10;
+    case 2: return 20;
+    }
+    fatal("bad token");   // 若 fatal 没有 [[noreturn]]，这里会警告
+} 
+```
+3. 需要注意出现UB,标记了 [[noreturn]] 但函数实际能返回，就是UB，编译器可警告（-Winvalid-noreturn），生成的代码可能完全不符合预期。
+```code
+[[noreturn]] void maybe_throw(bool c) {
+      if (c) throw std::runtime_error("x");
+      // 若 c 为 false，函数实际返回了 → 未定义行为（UB）
+  } 
+```
+
+
+string_view && string 对象周期不一致
+1. string:
+> 拥有RAII机制，会分配内存，超过SSO时会申请堆分配，为指针+大小+容量构成，保证\0结尾(c_str()h函数)，拷贝是深拷贝
+2. string_view
+> 只是原string的视图，不分配内存，为指针+长度（16字节，纯值类型）,data()不保证以\0结尾,不能修改，浅拷贝
+
+> 后者的生命周期完全依赖于原string的生命周期。需要注意出现悬空指针的情况
+
+
+```code
+message.append("ConfigConvert<").append(type_name).append(">: ").append(reason);
+```
+这种写法是方法链或流式接口，整个过程中并没有额外的构造开销，没有中间产物，性能很好
+相较于+操作，+虽然在c++11以后靠移动和重载缓解临时的string，但是仍可能存在多次缓冲区交接
+
+c++20模板参数约束
+requires 和consept
+
+remove_cv是移除模板参数T的顶层const和volatile
+
+typename C::value_type &&value
+这种申明在于告诉编译器这里的C是类型还是值，保险起见，当作为类型使用时，还是添加上这个显式声明。
+
+is_arithmetic_v判断不了bool，这也是整数运算类型，根本原因在于bool可以隐式转换为int参与运算
+
+```code
+template <typename T>
+concept YamlDecodable = requires(const YAML::Node &node, T &out) {
+    { YAML::convert<T>::decode(node, out) } -> std::convertible_to<bool>;
+};
+
+template <typename T>
+concept YamlEncodable = requires(const T &value) {
+    { YAML::convert<T>::encode(value) } -> std::convertible_to<YAML::Node>;
+};
+```
+concept约束时，是在编译器确定是否特化这个模板，
+requires(Args) {表达式}->return_type
+表达式必须是语法正确的，在编译器中根据该语句true or false 最后根据return_type 返回结果
+
+constexpr 根据实际情况，编译器求值或运行期
+consteval 必须编译器确定
+
+#### 命名返回值优化 RVO NVRO
+返回值优化优先，如果不行再退化为移动
+
+基于c++11 移动语义 c++17 强制拷贝省略
+
+RVO 返回临时匿名对象 return value optimization
+>c++17后，一律使用构造函数，直接原地构造，向外返回自身，期间存在一个隐藏指针，该指针直接指向外部接受返回值的对象，从而减少开销
+
+对于RVO而言，构造对象是一个临时对象，是将亡值，也就是右值，编译器直接优化，将构造指向外部接受变量
+
+
+NRVO (named return value optimization)
+返回有名字的局部变量，但并不是强制的优化，满足一下条件就可以进行
+>1. 返回的就是居名局部变量本事
+>2. 类型严格一致，即变脸type和函数返回值
+>3. 所有return路径返回同一个对象
+>4. 不是函数形参
+
+而NRVO，编译器需要确定，当前的具名对象在函数栈帧中会不会使用，判断开销很大，所以NRVO优化，并不是强制要求
+
+>不要手动在return时使用move，这会使得NRVO失败，最坏情况下，将零成本变为一次移动构造
+
+#### STL容器类模板参数
+T：element  A: Allocator(分配器)  C:compare(排序函数)
+H:Hash(Hash算法)  E:equality(哈希冲突后相等判别)
+
+
