@@ -1,3 +1,6 @@
+folly+abseil+qt
+
+
 # 1.Cmake
 ```code
 //强制要求cmake版本不低于3.25
@@ -290,11 +293,13 @@ u64 checksum = 0;
     BENCHMARK_SINK.fetch_xor(checksum, std::memory_order_relaxed);
     return std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
 ```
-BENCHMARK_SINK作为全局变量，编译器不保证其会不会被用到，故一直保留观察，同时fetch_xor是会保守处理操作。fetch_xor是原子性的“读写改”，即fetch_* 类型的函数都是如此，*是操作类型，xor就是做异或。memory_order_relaxed 只是放弃与其他内存操作的顺序保证（省去内存屏障开销，避免污染测量结果
-  ），它并不降低操作本身的可观察性——这一次写入仍然必须真实发生。
+BENCHMARK_SINK作为全局变量，编译器不保证其会不会被用到，故一直保留观察，同时fetch_xor是会保守处理操作。fetch_xor是原子性的“读写改”，即fetch_* 类型的函数都是如此，*是操作类型，xor就是做异或。memory_order_relaxed 只是放弃与其他内存操作的顺序保证（省去内存屏障开销，避免污染测量结果），它并不降低操作本身的可观察性——这一次写入仍然必须真实发生。
 
 memory_order类参数，在于修改指令顺序，编译器CPU会重排指令、缓存内存数据。这些参数在于约束
 ![memory_order](memory_order.png)
+
+>原子变量自增的约束在于线程安全和指令重排的严格安全，这种指令重排安全并不是指cpu完全不对指令进行重排优化，而是说它与其他变量之间的相对顺序不会出现问题。
+>通过fetch_add(1,memory_order_relaxed)实现自增时，在于只将其作为一个计数器使用，但是不保证其作为标志来推断其他数据操作的安全。相较于原先的自增，降低了指令重排后的安全；
 
 
 ```code
@@ -791,6 +796,11 @@ c++17 clamp函数
 ### 6.1 编译器确定变量类型
 或用type_traits，类型萃取
 
+确定类型，使用探针法或者类型萃取，两者各有优劣
+>探针法：通过source_location库来获取编译期的函数签名，从而得到对应类型。天然覆盖所有的变量类型，只要模板可以实例化，就可以获取。代码轻量可控，但是输出固定，只能使用编译器签名。
+
+>类型萃取：属于标准做法，不会因为编译器的不同而导致结果差异，输出安全可控，但是代码量很巨大，相当于是通过特化维护了一张表，实例化是查表返回类型
+
 编译器在编译时，对各个函数数据存有签名，直接通过各自宏获取签名
 
 c++20引入文件路径source_location
@@ -803,6 +813,12 @@ mscv编译器下，直接使用编译器宏__FUNCSIG__
 // GCC: consteval std::string_view pans::detail::TypeNameProbe() [with T = int;...]
 // Clang: std::string_view pans::detail::TypeNameProbe() [T = int]
 // MSCV: pans::detail::TypeNameProbe<int>(void) noexcept
+
+>通过std::source_location::current().function_name()或__FUNCSIG__获得带有实例化<T>的完整函数签名，然后通过声明为consteval在编译期执行切割，获得具体的T，从而在编译期求值，运行时使用
+
+constexpr 根据实际情况，编译器求值或运行期
+consteval 必须编译期确定，在申明这样的变量前后，使用cout这些非常量求值表达式，也即是非constexpr，会报错
+
 
 
 ## 6.2 string->yaml.node转换
@@ -882,8 +898,7 @@ concept约束时，是在编译器确定是否特化这个模板，
 requires(Args) {表达式}->return_type
 表达式必须是语法正确的，在编译器中根据该语句true or false 最后根据return_type 返回结果
 
-constexpr 根据实际情况，编译器求值或运行期
-consteval 必须编译器确定
+
 
 #### 命名返回值优化 RVO NVRO
 返回值优化优先，如果不行再退化为移动
@@ -894,7 +909,6 @@ RVO 返回临时匿名对象 return value optimization
 >c++17后，一律使用构造函数，直接原地构造，向外返回自身，期间存在一个隐藏指针，该指针直接指向外部接受返回值的对象，从而减少开销
 
 对于RVO而言，构造对象是一个临时对象，是将亡值，也就是右值，编译器直接优化，将构造指向外部接受变量
-
 
 NRVO (named return value optimization)
 返回有名字的局部变量，但并不是强制的优化，满足一下条件就可以进行
@@ -911,4 +925,16 @@ NRVO (named return value optimization)
 T：element  A: Allocator(分配器)  C:compare(排序函数)
 H:Hash(Hash算法)  E:equality(哈希冲突后相等判别)
 
+#### extern误区
+extern 声明该变量在他处(.cpp)定义，由链接器自行寻找定义位置，获取对象。在.h中使用后，只声明，不分配。
 
+## 配置导入模块
+####  mutable
+在被const约束的领域内，可以进行该改变。其在于将逻辑常量性和物理常量性分离。对于const，其在逻辑上约束，但mutex则是保证只在实现细节处做出修改。
+mutable不可修饰static/const成员
+- mutable 成员变量：
+>通过const声明的成员函数，this指针实际上是const this，从而约束函数中的变量，不能发生改变。但是mutable的变量，可以获得豁免。
+>mutex申明为mutable，对于读锁，mutex确实要在内部修改，如果不声明mutable，编译报错。
+
+- lambda表达式
+>其本质上是一个匿名闭包，在按值捕获变量时，捕获变量只是一个闭包中的局部变量，而且是常指值，无法修改，如果要修改，就要加mutable声明
