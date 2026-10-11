@@ -717,6 +717,7 @@ static T *Instance()
  编译器会给每个需要动态初始化的局部 static
   变量配一个隐藏的守卫变量，并把代码改写成大致这样：
 
+```code
 static Singleton &Instance() {
     static Singleton instance;
     // 编译器 conceptually 展开为：
@@ -738,6 +739,8 @@ static Singleton &Instance() {
     }
     return instance;
 }
+```
+
 
 # 5. cmake引入第三方库
 第三方库，大编译库，对于wsl需要调整运行时空间大小，以及swap空间切换，从而使得系统不出现OOM
