@@ -225,6 +225,35 @@ void lock() noexcept
 两层结构，外层抢锁，内层探测
 ```
 
+### CAS
+即**比较并交换** compare-and-swap
+只是一个硬件级原子指令，直接由cpu全权操作。
+``code
+ bool CAS(atomic<T>& addr, T& expected, T desired)
+  {
+      if (addr.load() == expected)   // 比较
+      {
+          addr.store(desired);       // 交换
+          return true;               // 成功
+      }
+      expected = addr.load();        // 失败：把当前实际值写回 expected（很重要！）
+      return false;
+  }
+```整体是一个完整过程，不会存在其他线程插在中间，修改对应值。
+利用CAS循环，检查值
+```code
+  u64 expected = counter.load();          // 1. 拍照：记住旧值
+  while (!counter.compare_exchange_weak(  // 3. 试探：只有值还是我拍的照时才写入
+           expected, expected + 1))
+  {
+      // 失败说明有人抢先改了，expected 已被刷新为最新值
+      // 什么都不用做，带着新值回循环重试即可
+  }
+```
+
+#### 乐观悲观锁
+乐观锁在于赌执行期间无其他人操作，悲观锁则是先锁住再说。
+
 # 4. 日志
 
 ## 接口设计cmake
