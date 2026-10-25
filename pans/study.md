@@ -1007,6 +1007,37 @@ mutable不可修饰static/const成员
 
 由此，在网络编程中，通过HttpConnect异步连接时，通过lambda表达式不断捕获当前的网络上下文，从而使得对应的链接不会中断。asio的声明周期等价于当前Server端的运行，只有在当前的服务器停止运行后，其生命周期才会结束
 
+### test_fiber Impl
+对于协程，本质上在于将获取线程的执行权，然后自行执行代码块。线程在执行时，会依照两个寄存器指针：RIP(指令指针)，RSP(栈指针)
+主线程调用自行实现的fiber库
+在进行协程切换时，也就是执行boost::context::fiber::resume()函数时，会自行将RIP指向fiber::caller中的代码块，RSP指向协程栈，而主线程进入运行态
+
+>parked表示当前协程调用者，协程栈是否已经归位于context，保证当前协程栈只在自己手里，在物理上进行约束
+>state：当前的协程状态，全程可改，故需要suspendstate来约束协程的进入，其只存取上一次协程调用者是以协程什么状态离开的。
+
+>context和caller不会同时有效，fiber运行时caller中保存着回到主线程的路径，fiber停止时，context存放着fiber运行的位置
+
+>心智模型：栈，而且实际上也是这样的，主线程自己的栈，通过resume，将指令流切换到协程栈上运行，然后协程栈的yield直接切回主线程自己的栈，如此反复，直到协程正式完成工作
+
+对于test1的整个流程可以这样理解：
+1. 初始化fiber：
+通过make_shared构造fiber指针，构造函数中指明CallBack代码块，然后在fiber无参构造函数中调用有参重载构造，获取options参数(默认stacksize=1024KB和guardPage=True)
+2. 初始化m_impl内部执行类
+先通过g_nextFiberId分配协程id号，从1开始，然后检查栈空间分配是否合适，初始化上下文,将外部的callback存储到内部类中，使用entry作为协程开始执行的入口动作，entry定义了三个步骤，先将caller存入到m_impl的caller，然后调用run,再将caller返回出去，然后初始化结束，协程总数g_fiberCount++，m_impl->context赋为先前的初始化好的上下文
+3. 第一次执行resume()
+对协程状态做检查，发现是init状态，就切换为ready，然后将parked置为false，对外表示不能更改。上下文由context持有，内部存放的是协程执行到哪里，caller存放的是唤醒协程的主线程的微型指针，也就是resume函数内部。context为2中初始化的new_context,entry会在当前协程第一次resume时运行，然后将caller存为当前的主线程的resume()结束后的现场，触发boost::context::fiber的resume函数，顺利执行的话，就会调用run()函数执行callback。然后直到协程执行完或者协程内部挂起，才对外返回新的context，作为结果
+4. 协程执行
+执行到YieldToReady()时，调用yield函数，然后将caller置为空，move了，协程停止运行，回到主线程，开始继续执行resume的剩余部分，执行完后，将context置为刚才协程停止的位置。此后如此
+
+##### 显式丢弃
+```c++
+auto invalid = std::make_shared<pans::Fiber>([]() {}, invalid_options);
+static_cast<void>(invalid);
+```
+通过这样转换，显式丢弃掉无用值
+
+
+
 
 
 
